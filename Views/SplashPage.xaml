@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="UTE_Parking_Project.Views.SplashPage"
+             NavigationPage.HasNavigationBar="False">
+
+    <ContentPage.Background>
+        <RadialGradientBrush Center="0.5,0.3" Radius="0.8">
+            <GradientStop Color="#5868f0" Offset="0.0" />
+            <GradientStop Color="#3B47D9" Offset="0.35" />
+            <GradientStop Color="#2832c4" Offset="0.60" />
+            <GradientStop Color="#1e27a8" Offset="0.80" />
+            <GradientStop Color="#1a1f8a" Offset="1.0" />
+        </RadialGradientBrush>
+    </ContentPage.Background>
+
+    <Grid>
+        <BoxView Color="#11ffffff" CornerRadius="150" WidthRequest="300" HeightRequest="300" 
+                 HorizontalOptions="Center" VerticalOptions="Start" TranslationY="-80" />
+        <BoxView Color="#08ffffff" CornerRadius="125" WidthRequest="250" HeightRequest="250" 
+                 HorizontalOptions="Center" VerticalOptions="End" TranslationY="80" />
+
+        <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="20">
+            
+            <AbsoluteLayout WidthRequest="68" HeightRequest="60" HorizontalOptions="Center">
+                <Ellipse AbsoluteLayout.LayoutBounds="0,22,24,24" Stroke="White" StrokeThickness="3.6" Fill="Transparent"/>
+                <Ellipse AbsoluteLayout.LayoutBounds="40,22,24,24" Stroke="White" StrokeThickness="3.6" Fill="Transparent"/>
+                
+                <Line AbsoluteLayout.LayoutBounds="0,0,68,60" X1="12"  Y1="34" X2="26" Y2="12"  Stroke="White" StrokeThickness="3.2" StrokeLineCap="Round"/>
+                <Line AbsoluteLayout.LayoutBounds="0,0,68,60" X1="26" Y1="12"  X2="26" Y2="24" Stroke="White" StrokeThickness="3.2" StrokeLineCap="Round"/>
+                <Line AbsoluteLayout.LayoutBounds="0,0,68,60" X1="26" Y1="24" X2="12"  Y2="34" Stroke="White" StrokeThickness="3.2" StrokeLineCap="Round"/>
+                <Line AbsoluteLayout.LayoutBounds="0,0,68,60" X1="26" Y1="12"  X2="52" Y2="24" Stroke="White" StrokeThickness="3.2" StrokeLineCap="Round"/>
+                <Line AbsoluteLayout.LayoutBounds="0,0,68,60" X1="26" Y1="24" X2="52" Y2="34" Stroke="White" StrokeThickness="3.2" StrokeLineCap="Round"/>
+                
+                <Line AbsoluteLayout.LayoutBounds="0,0,68,60" X1="52" Y1="18"  X2="52" Y2="34" Stroke="White" StrokeThickness="3" StrokeLineCap="Round"/>
+                <Line AbsoluteLayout.LayoutBounds="0,0,68,60" X1="48" Y1="18"  X2="58" Y2="18"  Stroke="White" StrokeThickness="3" StrokeLineCap="Round"/>
+                <Line AbsoluteLayout.LayoutBounds="0,0,68,60" X1="26" Y1="12"  X2="22" Y2="6"  Stroke="White" StrokeThickness="3" StrokeLineCap="Round"/>
+                <Line AbsoluteLayout.LayoutBounds="0,0,68,60" X1="18"  Y1="5" X2="28" Y2="5" Stroke="White" StrokeThickness="3.6" StrokeLineCap="Round"/>
+                
+                <Ellipse AbsoluteLayout.LayoutBounds="44,0,10,10" Fill="White"/>
+            </AbsoluteLayout>
+            
+            <Label Text="UTE PARKING" FontSize="26" FontAttributes="Bold" TextColor="White" 
+                   HorizontalOptions="Center" CharacterSpacing="1.5" FontFamily="OpenSansSemibold"/>
+            
+        </VerticalStackLayout>
+
+        <ActivityIndicator IsRunning="True" Color="White" HorizontalOptions="Center" 
+                           VerticalOptions="End" Margin="0,0,0,80" />
+    </Grid>
+</ContentPage>
