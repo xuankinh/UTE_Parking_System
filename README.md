@@ -15,7 +15,7 @@
 - [Cấu trúc thư mục](#-cấu-trúc-thư-mục)
 - [Demo / Screenshots](#-demo--screenshots)
 - [Cài đặt & chạy thử](#-cài-đặt--chạy-thử)
-- [Thành viên nhóm](#-thành-viên-nhóm)
+- [Bảng phân công nhiệm vụ](#-bảng-phân-công-nhiệm-vụ)
 - [Hướng phát triển](#-hướng-phát-triển)
 
 ---
@@ -59,67 +59,105 @@ UTE Parking giải quyết bài toán quản lý bãi xe trong trường học: 
 
 ## 🏗️ Kiến trúc hệ thống
 
+### 1️⃣ Sơ đồ khối tổng quan (Class-level Architecture)
+
 ```mermaid
 flowchart TB
-    subgraph Student["📱 Student App"]
-        S1[LoginPage]
-        S2[StudentDashboard]
-        S3[Gửi xe / Vé xe]
-        S4[Lịch sử / Hồ sơ]
+    subgraph VIEWS["📄 VIEWS — Presentation Layer"]
+        direction LR
+        SP["SplashPage.xaml.cs"]
+        LP["LoginPage.xaml.cs"]
+        SD["StudentDashboard.xaml.cs\n(partial: CheckIn / CheckOut)"]
+        GD["GuardDashboard.xaml.cs\n(partial: Monitoring / Operations)"]
     end
 
-    subgraph Guard["🛡️ Guard App"]
-        G1[GuardDashboard]
-        G2[Bãi đỗ / Điều hành]
-        G3[Thống kê / Lịch sử]
+    subgraph SERVICES["⚙️ SERVICES — Business Logic"]
+        direction LR
+        SS[("SharedState.cs\nnguồn dữ liệu chung")]
+        FH["FileHandlingService.cs\nđọc Excel SV · lưu ảnh QR"]
     end
 
-    subgraph Core["⚙️ Shared Core (MVVM)"]
-        SS["SharedState\n(nguồn dữ liệu chung)"]
-        WM["WeakReferenceMessenger\n(pub/sub realtime sync)"]
-        SVC["Services\n(ParkingService, AuthService, PricingService...)"]
-        MDL["Models\n(ParkingSlot, Ticket, User, Zone...)"]
+    subgraph MODELS["🧱 MODELS — Data"]
+        direction LR
+        ZI["ZoneItem\n(sức chứa, trạng thái khóa, giá)"]
     end
 
-    S2 -- "đọc/ghi chỗ trống" --> SS
-    S3 -- "gửi/lấy xe" --> SVC
-    G1 -- "đọc trạng thái khu bãi" --> SS
-    G2 -- "khóa/mở cổng, đổi giá" --> SVC
-    SVC --> MDL
-    SVC --> SS
-    SS -- "publish thay đổi" --> WM
-    WM -- "notify subscriber" --> S2
-    WM -- "notify subscriber" --> G1
-    WM -- "notify subscriber" --> G3
+    SP --> LP
+    LP --> SD
+    LP --> GD
 
-    style Core fill:#1e3a8a,color:#fff
-    style Student fill:#2563eb,color:#fff
-    style Guard fill:#16a34a,color:#fff
+    SD -- "FindNextSlot()" --> SS
+    SD -- "AddHistoryCard(), Preferences" --> FH
+    GD -- "RenderMap(), LockToggle()" --> SS
+
+    SS --> ZI
+
+    style VIEWS fill:#2563eb,color:#fff
+    style SERVICES fill:#1e3a8a,color:#fff
+    style MODELS fill:#0f172a,color:#fff
 ```
 
-**Luồng đồng bộ real-time:** khi sinh viên gửi xe vào Khu A → `ParkingService` cập nhật `SharedState` → `WeakReferenceMessenger` phát broadcast → cả `StudentDashboard` (cập nhật số chỗ trống) và `GuardDashboard` (cập nhật % lấp đầy, thống kê) tự refresh UI ngay lập tức, **không cần gọi lại API hoặc reload màn hình**.
+> `SharedState.cs` là **nguồn dữ liệu chung duy nhất** (in-memory), giữ danh sách `ZoneItem` của 4 khu bãi. Khi `StudentDashboard` gọi `FindNextSlot()` để gửi xe, hoặc `GuardDashboard` gọi `LockToggle()` để khóa cổng, cả hai đều đọc/ghi trực tiếp vào `SharedState` → mọi thay đổi hiển thị ngay trên cả 2 app mà không cần gọi lại API hay reload màn hình.
 
-### Luồng gửi xe (Student)
+### 2️⃣ Luồng khởi động & điều hướng
 
 ```mermaid
-sequenceDiagram
-    participant SV as Sinh viên
-    participant UI as StudentDashboard
-    participant SVC as ParkingService
-    participant SS as SharedState
+flowchart LR
+    A(["SplashPage"]) --> B(["LoginPage"])
+    B --> C{"Đăng nhập\nthành công?"}
+    C -- "Vai trò: Sinh viên" --> D(["StudentDashboard"])
+    C -- "Vai trò: Bảo vệ" --> E(["GuardDashboard"])
+    C -- "Sai MSSV/mật khẩu" --> B
 
-    SV->>UI: Chọn loại xe + khu bãi
-    UI->>SVC: RequestParkingSlot(zone, vehicleType)
-    SVC->>SS: Kiểm tra sức chứa khu bãi
-    alt Khu bãi đầy/khóa
-        SVC-->>UI: Cảnh báo (sắp đầy / đã khóa)
-        UI-->>SV: Hỏi xác nhận / chọn khu khác
-    else Còn chỗ
-        SVC->>SS: Trừ 1 chỗ trống, gán vị trí (vd C2)
-        SS-->>SVC: Xác nhận
-        SVC-->>UI: Gửi xe thành công + tạo vé QR
-        UI-->>SV: Hiển thị QR, lưu lịch sử
-    end
+    style A fill:#2563eb,color:#fff
+    style B fill:#2563eb,color:#fff
+    style D fill:#16a34a,color:#fff
+    style E fill:#ea580c,color:#fff
+```
+
+### 3️⃣ Module Student App (`StudentDashboard.xaml.cs`)
+
+```mermaid
+flowchart TB
+    SD(["StudentDashboard.xaml.cs"]) --> T1["Tab: Gửi xe"]
+    SD --> T2["Tab: Vé xe"]
+    SD --> T3["Tab: Lịch sử"]
+    SD --> T4["Tab: Hồ sơ"]
+
+    T1 --> T1a["Chọn loại xe + khu bãi"]
+    T1a -- "FindNextSlot()" --> T1b["Cấp chỗ tự động"]
+    T1b --> T1c["Tạo vé QR"]
+
+    T2 --> T2a["Hiển thị vé QR gửi xe"]
+    T2 --> T2b["Quét QR lấy xe"]
+
+    T3 -- "AddHistoryCard()" --> T3a["Danh sách lịch sử gửi/lấy"]
+
+    T4 -- "Preferences" --> T4a["Lưu/khôi phục phiên gửi xe"]
+
+    style SD fill:#2563eb,color:#fff
+```
+
+### 4️⃣ Module Guard App (`GuardDashboard.xaml.cs`)
+
+```mermaid
+flowchart TB
+    GD(["GuardDashboard.xaml.cs"]) --> U1["Tab: Bãi đỗ"]
+    GD --> U2["Tab: Thống kê"]
+    GD --> U3["Tab: Lịch sử"]
+    GD --> U4["Tab: Điều hành"]
+
+    U1 -- "RenderMap()" --> U1a["Sơ đồ trực quan + sức chứa 4 khu"]
+
+    U2 --> U2a["Doanh thu hôm nay"]
+    U2 --> U2b["Biểu đồ tuần + khung giờ"]
+
+    U3 --> U3a["Tra cứu theo biển số / MSSV"]
+
+    U4 -- "LockToggle()" --> U4a["Khóa/mở cổng khẩn cấp"]
+    U4 --> U4b["Điều chỉnh giá vé"]
+
+    style GD fill:#ea580c,color:#fff
 ```
 
 ---
@@ -162,45 +200,67 @@ UTE_Parking_System/
 
 > Đặt toàn bộ ảnh dưới đây vào `Resources/Screenshots/` trước khi push để các link ảnh render đúng trên GitHub.
 
-### 🚴 Student App
+### 1️⃣ Splash & Đăng nhập
 
-| Splash & Đăng nhập | Dashboard gửi xe |
+| Splash Screen | Login Screen |
 |---|---|
-| ![Splash](Resources/Screenshots/SplashScreen.png) ![Login](Resources/Screenshots/LoginScreen.png) | ![Dashboard](Resources/Screenshots/StudentDashboard_GuiXe.png) |
+| ![Splash](Resources/Screenshots/SplashScreen.png) | ![Login](Resources/Screenshots/LoginScreen.png) |
 
-| Chọn khu bãi | Cảnh báo sắp đầy | Khu đang khóa |
-|---|---|---|
-| ![ChonKhuBai](Resources/Screenshots/GuiXe_ChonKhuBai.png) | ![Warning](Resources/Screenshots/GuiXe_KhuBSapDay_Warning.png) | ![Locked](Resources/Screenshots/GuiXe_KhuDDaKhoa_Warning.png) |
+### 2️⃣ Student App — Gửi xe
 
-| Sơ đồ khu bãi | Nhập biển số | Gửi xe thành công |
-|---|---|---|
-| ![SoDo](Resources/Screenshots/GuiXe_SoDoKhuB.png) | ![BienSo](Resources/Screenshots/GuiXe_BienSoXeMay.png) | ![ThanhCong](Resources/Screenshots/GuiXe_ThanhCong.png) |
-
-| Vé QR gửi xe | Lưu ảnh vé QR | Lịch sử gửi xe |
-|---|---|---|
-| ![VeQR](Resources/Screenshots/VeXe_QRCode.png) | ![SaveQR](Resources/Screenshots/VeXe_SaveQR_FileExplorer.png) | ![LichSu](Resources/Screenshots/LichSuGuiXe.png) |
-
-| QR lấy xe | Hồ sơ sinh viên |
+| Dashboard Gửi xe | Chọn khu bãi |
 |---|---|
-| ![LayXe](Resources/Screenshots/LayXe_QRCode.png) | ![HoSo](Resources/Screenshots/HoSoSinhVien.png) |
+| ![Dashboard](Resources/Screenshots/StudentDashboard_GuiXe.png) | ![ChonKhuBai](Resources/Screenshots/GuiXe_ChonKhuBai.png) |
 
-### 🛡️ Guard App
+| Cảnh báo khu sắp đầy | Khu đang khóa bảo trì |
+|---|---|
+| ![Warning](Resources/Screenshots/GuiXe_KhuBSapDay_Warning.png) | ![Locked](Resources/Screenshots/GuiXe_KhuDDaKhoa_Warning.png) |
+
+| Sơ đồ khu bãi | Nhập biển số xe |
+|---|---|
+| ![SoDo](Resources/Screenshots/GuiXe_SoDoKhuB.png) | ![BienSo](Resources/Screenshots/GuiXe_BienSoXeMay.png) |
+
+| Gửi xe thành công | Khu A/B đã khóa → chọn Khu D |
+|---|---|
+| ![ThanhCong](Resources/Screenshots/GuiXe_ThanhCong.png) | ![ChonKhuD](Resources/Screenshots/GuiXe_KhuABDaKhoa_ChonKhuD.png) |
+
+### 3️⃣ Student App — Vé xe / Lịch sử / Hồ sơ
+
+| Vé QR gửi xe | Vé QR khu D |
+|---|---|
+| ![VeQR](Resources/Screenshots/VeXe_QRCode.png) | ![VeKhuD](Resources/Screenshots/VeXe_KhuD_QRCode.png) |
+
+| Lưu ảnh vé QR | QR lấy xe |
+|---|---|
+| ![SaveQR](Resources/Screenshots/VeXe_SaveQR_FileExplorer.png) | ![LayXe](Resources/Screenshots/LayXe_QRCode.png) |
+
+| Lịch sử gửi xe | Hồ sơ sinh viên |
+|---|---|
+| ![LichSu](Resources/Screenshots/LichSuGuiXe.png) | ![HoSo](Resources/Screenshots/HoSoSinhVien.png) |
+
+### 4️⃣ Guard App — Bãi đỗ & Điều hành
 
 | Bãi đỗ — tổng quan | Khóa cổng khẩn cấp |
 |---|---|
 | ![BaiDo](Resources/Screenshots/GuardDashboard_BaiDo.png) | ![KhoaCong](Resources/Screenshots/GuardDashboard_KhoaCongKhuAB.png) |
 
+| Điều chỉnh giá vé | — |
+|---|---|
+| ![GiaVe](Resources/Screenshots/GuardDashboard_DieuHanh_GiaVe.png) | |
+
+### 5️⃣ Guard App — Thống kê & Lịch sử
+
 | Thống kê doanh thu | Lượng xe theo khung giờ |
 |---|---|
 | ![DoanhThu](Resources/Screenshots/GuardDashboard_ThongKe_DoanhThu.png) | ![KhungGio](Resources/Screenshots/GuardDashboard_ThongKe_LuongXeKhungGio.png) |
 
-| Lịch sử (rỗng) | Điều chỉnh giá vé |
+| Lịch sử (chưa tra cứu) | Tra cứu theo biển số |
 |---|---|
-| ![LichSuEmpty](Resources/Screenshots/GuardDashboard_LichSu_Empty.png) | ![GiaVe](Resources/Screenshots/GuardDashboard_DieuHanh_GiaVe.png) |
+| ![LichSuEmpty](Resources/Screenshots/GuardDashboard_LichSu_Empty.png) | ![TimBienSo](Resources/Screenshots/GuardDashboard_LichSu_TimBienSo.png) |
 
-| Khu A/B khóa → SV chọn Khu D | Vé QR khu D | Tra cứu theo biển số | Tra cứu theo MSSV |
-|---|---|---|---|
-| ![ChonKhuD](Resources/Screenshots/GuiXe_KhuABDaKhoa_ChonKhuD.png) | ![VeKhuD](Resources/Screenshots/VeXe_KhuD_QRCode.png) | ![TimBienSo](Resources/Screenshots/GuardDashboard_LichSu_TimBienSo.png) | ![TimMaSV](Resources/Screenshots/GuardDashboard_LichSu_TimMaSV.png) |
+| Tra cứu theo MSSV | — |
+|---|---|
+| ![TimMaSV](Resources/Screenshots/GuardDashboard_LichSu_TimMaSV.png) | |
 
 ---
 
@@ -222,15 +282,15 @@ dotnet build -t:Run -f net10.0-android
 
 ---
 
-## 👥 Thành viên nhóm
+## 👥 Bảng phân công nhiệm vụ
 
-| Tên | Vai trò |
-|---|---|
-| Đinh Xuân Kính | Trưởng nhóm — StudentDashboard, GuardDashboard, đồng bộ SharedState/Messenger, fix bug zone lock/price sync |
-| Trang | — |
-| Trung | — |
-| Trâm | — |
-| Nguyên | — |
+| Họ tên | Phụ trách | Mô tả chức năng |
+|---|---|---|
+| **Trang** | Login/Splash/Shared | Xây dựng màn hình đăng nhập, splash khởi động, xác thực tài khoản và kho dữ liệu chung của toàn hệ thống |
+| **Kính** | Student (Tab Gửi xe) | Xây dựng tab Gửi xe: chọn loại xe, chọn khu, cấp chỗ tự động, vẽ bản đồ sơ đồ chỗ đỗ, và hạ tầng nền (đồng hồ, đồng bộ dữ liệu, timer) |
+| **Trung** | Student (Tab Vé xe + Hồ sơ) | Xây dựng tab Vé xe và Hồ sơ: xác nhận lấy xe, lưu lịch sử, lưu ảnh vé QR, lưu/khôi phục phiên gửi xe qua Preferences, điều hướng tab và đăng xuất |
+| **Trâm** | Guard (Khởi tạo + Map) | Khởi tạo màn hình Guard, xây dựng bản đồ sơ đồ bãi xe, xử lý chọn khu và mô hình dữ liệu khu (ZoneItem) |
+| **Nguyên** | Guard (Clock + Nghiệp vụ) | Xử lý đồng hồ thời gian thực, thống kê doanh thu theo giờ, tự động khóa/mở bãi, khóa khu, tìm xe, cấu hình giá, điều hướng tab và đăng xuất |
 
 ---
 
