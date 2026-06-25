@@ -160,6 +160,103 @@ flowchart TB
     style GD fill:#ea580c,color:#fff
 ```
 
+### 5️⃣ Lưu đồ thuật toán (Flowchart ký hiệu chuẩn)
+
+> Quy ước ký hiệu: 🔵 Oval = Bắt đầu/Kết thúc · 🔶 Hình thoi = Điều kiện rẽ nhánh · ▱ Hình bình hành = Nhập/Xuất · ▭ Chữ nhật = Xử lý/Tính toán · ➡️ Mũi tên = Luồng xử lý
+
+**a) Splash Screen**
+
+```mermaid
+flowchart TD
+    Start(["Bắt đầu chương trình"])
+    P1["Khởi tạo SharedState.cs\n(load dữ liệu 4 khu bãi)"]
+    P2["Hiển thị logo + animation"]
+    Wait["Đợi 2 giây (Timer)"]
+    Check{"Đã có phiên\nđăng nhập lưu?\n(Preferences)"}
+    P3["Tự động vào Dashboard\ntheo vai trò đã lưu"]
+    Goto["Chuyển sang LoginPage"]
+    End(["Kết thúc Splash"])
+
+    Start --> P1 --> P2 --> Wait --> Check
+    Check -- "Có" --> P3 --> End
+    Check -- "Không" --> Goto --> End
+```
+
+**b) Login & phân quyền**
+
+```mermaid
+flowchart TD
+    Start(["Bắt đầu LoginPage"])
+    In1[/"Nhập MSSV và Mật khẩu"/]
+    Check{"Thông tin\nhợp lệ?"}
+    Out1[\"Hiển thị: Sai MSSV/mật khẩu"\]
+    Role{"Vai trò\ntài khoản?"}
+    P1["Tải StudentDashboard.xaml.cs"]
+    P2["Tải GuardDashboard.xaml.cs"]
+    End(["Kết thúc"])
+
+    Start --> In1 --> Check
+    Check -- "Sai" --> Out1 --> In1
+    Check -- "Đúng" --> Role
+    Role -- "Sinh viên" --> P1 --> End
+    Role -- "Bảo vệ" --> P2 --> End
+```
+
+**c) Student App — luồng tổng (`StudentDashboard.xaml.cs`)**
+
+```mermaid
+flowchart TD
+    Start(["Bắt đầu StudentDashboard"])
+    In1[/"Chọn Tab"/]
+    Tab{"Tab nào?"}
+
+    P1["Chọn loại xe + khu bãi"]
+    Check1{"Khu bãi\nkhóa/đầy?"}
+    Out1[\"Cảnh báo, chọn khu khác"\]
+    P2["FindNextSlot()\ncấp chỗ tự động"]
+    P3["Tạo vé QR"]
+
+    P4["Hiển thị vé QR /\nQuét QR lấy xe"]
+    P5["AddHistoryCard()\nhiển thị lịch sử"]
+    P6["Preferences\nlưu/khôi phục phiên"]
+
+    End(["Kết thúc / Quay lại Tab"])
+
+    Start --> In1 --> Tab
+    Tab -- "Gửi xe" --> P1 --> Check1
+    Check1 -- "Đúng" --> Out1 --> P1
+    Check1 -- "Sai" --> P2 --> P3 --> End
+    Tab -- "Vé xe" --> P4 --> End
+    Tab -- "Lịch sử" --> P5 --> End
+    Tab -- "Hồ sơ" --> P6 --> End
+```
+
+**d) Guard App — luồng tổng (`GuardDashboard.xaml.cs`)**
+
+```mermaid
+flowchart TD
+    Start(["Bắt đầu GuardDashboard"])
+    In1[/"Chọn Tab"/]
+    Tab{"Tab nào?"}
+
+    P1["RenderMap()\nhiển thị sơ đồ 4 khu bãi"]
+    P2["Tính doanh thu, biểu đồ\ntheo tuần/khung giờ"]
+    In2[/"Nhập biển số hoặc MSSV"/]
+    P3["Tra cứu lịch sử ra/vào"]
+    Check{"Bảo vệ chọn\nKhóa cổng?"}
+    P4["LockToggle()\nkhóa/mở khu bãi"]
+    P5["Điều chỉnh bảng giá vé"]
+    End(["Kết thúc / Quay lại Tab"])
+
+    Start --> In1 --> Tab
+    Tab -- "Bãi đỗ" --> P1 --> End
+    Tab -- "Thống kê" --> P2 --> End
+    Tab -- "Lịch sử" --> In2 --> P3 --> End
+    Tab -- "Điều hành" --> Check
+    Check -- "Có" --> P4 --> End
+    Check -- "Không" --> P5 --> End
+```
+
 ---
 
 ## 🛠️ Công nghệ sử dụng
